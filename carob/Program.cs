@@ -5,7 +5,7 @@
 // Alistair J. R. Young
 // Arkane Systems
 // 
-// Copyright Arkane Systems 2015.  All rights reserved.
+// Copyright Arkane Systems 2012-2013.  All rights reserved.
 // 
 // Created: 2015-02-09 5:09 PM
 
@@ -54,7 +54,16 @@ namespace ArkaneSystems.Carob
 
             // Then, check if this is a self-invoke.
             var parent = ParentProcessUtilities.GetParentProcess () ;
+
+            bool isUs = true ;
+
             if (parent.ProcessName != @"carob")
+                isUs = false ;
+
+            if (parent.MainModule.FileName != Process.GetCurrentProcess ().MainModule.FileName)
+                isUs = false ;
+
+            if (!isUs)
             {
                 if (!areAdmin)
                 {
@@ -68,30 +77,16 @@ namespace ArkaneSystems.Carob
 
                         // Self-invoke as a wrapper.
                         Process selfprocess ;
-                        Mutex flagMutex = null ;
+                        var psi = new ProcessStartInfo () ;
+                        psi.FileName = Process.GetCurrentProcess ().MainModule.FileName ;
+                        psi.Arguments = pargs ;
 
-                        try
-                        {
-                            // Make the okay event.
-                            string mutexName = string.Format ("carob-{0}", Process.GetCurrentProcess ().Id) ;
-                            flagMutex = new Mutex(false, mutexName);
+                        // Force UAC invoke.
+                        psi.Verb = "runas" ;
 
-                            var psi = new ProcessStartInfo () ;
-                            psi.FileName = Process.GetCurrentProcess ().MainModule.FileName ;
-                            psi.Arguments = pargs ;
-
-                            // Force UAC invoke.
-                            psi.Verb = "runas" ;
-
-                            // Run wrapper and wait for it to exit.
-                            selfprocess = Process.Start (psi) ;
-                            selfprocess.WaitForExit () ;
-                        }
-                        finally
-                        {
-                            if (flagMutex != null)
-                                flagMutex.Dispose () ;
-                        }
+                        // Run wrapper and wait for it to exit.
+                        selfprocess = Process.Start (psi) ;
+                        selfprocess.WaitForExit () ;
 
                         return selfprocess.ExitCode ;
                     }
@@ -107,17 +102,6 @@ namespace ArkaneSystems.Carob
             // We are a self-invoke (as admin).
             if (!areAdmin)
                 throw new InvalidOperationException ("carob: not admin on self-invoke. fatal error. epic fail.") ;
-
-            // Check for the event.
-            string testMutexName = string.Format ("carob-{0}", parent.Id);
-            Mutex testMutex ;
-            if (!Mutex.TryOpenExisting (testMutexName, out testMutex))
-            {
-                // Open failed; ergo, not really a self-invoke.
-                // Quit silently, as this probably means our caller was a chocolatey stub.
-                return 0 ;
-            }
-            testMutex.Close();
 
             // Invoke chocolatey.
             var process = InvokeChocolatey (pargs) ;
