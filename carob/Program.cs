@@ -17,6 +17,7 @@ using System ;
 using System.Diagnostics ;
 using System.Linq ;
 using System.Security.Principal ;
+using System.Threading ;
 
 #endregion
 
@@ -66,16 +67,32 @@ namespace ArkaneSystems.Carob
                         Console.WriteLine ("carob: elevation to admin possible. invoking wrapper.") ;
 
                         // Self-invoke as a wrapper.
-                        var psi = new ProcessStartInfo () ;
-                        psi.FileName = Process.GetCurrentProcess ().MainModule.FileName ;
-                        psi.Arguments = pargs ;
+                        Process selfprocess ;
+                        Mutex flagMutex = null ;
 
-                        // Force UAC invoke.
-                        psi.Verb = "runas" ;
+                        try
+                        {
+                            // Make the okay event.
+                            string mutexName = string.Format ("carob-{0}", Process.GetCurrentProcess ().Id) ;
+                            flagMutex = new Mutex(false, mutexName);
 
-                        // Run wrapper and wait for it to exit.
-                        var selfprocess = Process.Start (psi) ;
-                        selfprocess.WaitForExit () ;
+                            var psi = new ProcessStartInfo () ;
+                            psi.FileName = Process.GetCurrentProcess ().MainModule.FileName ;
+                            psi.Arguments = pargs ;
+
+                            // Force UAC invoke.
+                            psi.Verb = "runas" ;
+
+                            // Run wrapper and wait for it to exit.
+                            selfprocess = Process.Start (psi) ;
+                            selfprocess.WaitForExit () ;
+                        }
+                        finally
+                        {
+                            if (flagMutex != null)
+                                flagMutex.Dispose () ;
+                        }
+
                         return selfprocess.ExitCode ;
                     }
                     Console.WriteLine ("carob: this user cannot elevate to admin. fail.") ;
@@ -90,6 +107,17 @@ namespace ArkaneSystems.Carob
             // We are a self-invoke (as admin).
             if (!areAdmin)
                 throw new InvalidOperationException ("carob: not admin on self-invoke. fatal error. epic fail.") ;
+
+            // Check for the event.
+            string testMutexName = string.Format ("carob-{0}", parent.Id);
+            Mutex testMutex ;
+            if (!Mutex.TryOpenExisting (testMutexName, out testMutex))
+            {
+                // Open failed; ergo, not really a self-invoke.
+                // Quit silently, as this probably means our caller was a chocolatey stub.
+                return 0 ;
+            }
+            testMutex.Close();
 
             // Invoke chocolatey.
             var process = InvokeChocolatey (pargs) ;
