@@ -16,6 +16,7 @@
 using System ;
 using System.Diagnostics ;
 using System.Linq ;
+using System.Runtime.InteropServices ;
 using System.Security.Principal ;
 using System.Threading ;
 
@@ -25,6 +26,12 @@ namespace ArkaneSystems.Carob
 {
     public static class Program
     {
+        [DllImport("kernel32.dll", SetLastError = true)]
+        static extern bool AttachConsole (uint dwProcessId);
+
+        [DllImport("kernel32.dll", SetLastError = true, ExactSpelling = true)]
+        static extern bool FreeConsole ();
+
         private static string chocolateyLocation ;
 
         private static int Main (string[] args)
@@ -55,10 +62,7 @@ namespace ArkaneSystems.Carob
             // Then, check if this is a self-invoke.
             var parent = ParentProcessUtilities.GetParentProcess () ;
 
-            bool isUs = true ;
-
-            if (parent.ProcessName != @"carob")
-                isUs = false ;
+            bool isUs = parent.ProcessName == @"carob";
 
             if (parent.MainModule.FileName != Process.GetCurrentProcess ().MainModule.FileName)
                 isUs = false ;
@@ -76,16 +80,20 @@ namespace ArkaneSystems.Carob
                         Console.WriteLine ("carob: elevation to admin possible. invoking wrapper.") ;
 
                         // Self-invoke as a wrapper.
-                        Process selfprocess ;
-                        var psi = new ProcessStartInfo () ;
-                        psi.FileName = Process.GetCurrentProcess ().MainModule.FileName ;
-                        psi.Arguments = pargs ;
+                        var psi = new ProcessStartInfo
+                                  {
+                                    FileName = Process.GetCurrentProcess ().MainModule.FileName,
+                                    Arguments = pargs,
+                                    WindowStyle = ProcessWindowStyle.Hidden,
 
-                        // Force UAC invoke.
-                        psi.Verb = "runas" ;
+                                      // Force UAC invoke.
+                                    Verb = "runas"
+                                  } ;
 
                         // Run wrapper and wait for it to exit.
-                        selfprocess = Process.Start (psi) ;
+                        var selfprocess = Process.Start (psi) ;
+
+                        Debug.Assert (selfprocess != null, "selfprocess != null") ;
                         selfprocess.WaitForExit () ;
 
                         return selfprocess.ExitCode ;
@@ -103,32 +111,34 @@ namespace ArkaneSystems.Carob
             if (!areAdmin)
                 throw new InvalidOperationException ("carob: not admin on self-invoke. fatal error. epic fail.") ;
 
+            // Switch output to parent's console.
+            FreeConsole () ;
+            AttachConsole ((uint)parent.Id) ;
+
             // Invoke chocolatey.
             var process = InvokeChocolatey (pargs) ;
 
-            // Wait to be dismissed.
-            Console.WriteLine ("\ncarob: waiting for user. review chocolatey output and press any key.") ;
+            //// Wait to be dismissed.
+            //Console.WriteLine ("\ncarob: waiting for user. review chocolatey output and press any key.") ;
 
-            // Clear the buffer.
-            while (Console.KeyAvailable)
-                Console.ReadKey () ;
+            //// Clear the buffer.
+            //while (Console.KeyAvailable)
+            //    Console.ReadKey () ;
 
-            Console.ReadKey (true) ;
+            //Console.ReadKey (true) ;
 
             return process.ExitCode ;
         }
 
         private static Process InvokeChocolatey (string pargs)
         {
-            var psi = new ProcessStartInfo () ;
-            psi.FileName = chocolateyLocation ;
-            psi.Arguments = pargs ;
-
             // Without shell-execute, this will launch in the same command-line window.
-            psi.UseShellExecute = false ;
+            var psi = new ProcessStartInfo {FileName = chocolateyLocation, Arguments = pargs, UseShellExecute = false} ;
 
             // Run chocolatey and wait for it to exit.
             var process = Process.Start (psi) ;
+
+            Debug.Assert (process != null, "process != null") ;
             process.WaitForExit () ;
             return process ;
         }
