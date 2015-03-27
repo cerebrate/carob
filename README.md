@@ -10,6 +10,10 @@ Unfortunately, since I use chocolatey as my package manager and take full advant
 
 Enter carob.
 
-Once it's installed, just use carob in exactly the way you'd use choco. If you aren't currently running in an elevated context, carob elevates for you (with associated UAC prompt) and runs choco in the elevated session with the arguments you gave it, pausing afterwards so that you can read choco's output. If you _are_ , carob simply passes the arguments straight through to choco. Either way, you get what you want, no errors, no retyping, and if you're in the habit of logging your console activity to keep track of what you did, then your choco^Wcarob command line shows up in the right place.
+Once it's installed, just use carob in exactly the way you'd use choco. If you aren't currently running in an elevated context, carob elevates for you (with associated UAC prompt) and runs choco elevated for you. If you _are_ , carob simply passes the arguments straight through to choco.
+
+__In version >1.1, the chocolatey console output is seamlessly redirected to appear in the current console window;__ no second window, no need to pause.
+
+Either way, you get what you want, no errors, no retyping, and if you're in the habit of logging your console activity to keep track of what you did, then your choco^Wcarob command line shows up in the right place.
 
 __Recommended installation procedure:__ via Chocolatey, obviously: https://chocolatey.org/packages/carob
