@@ -1,5 +1,7 @@
 # carob
 
+[![Build status](https://ci.appveyor.com/api/projects/status/3g3h90mterjoucr2?svg=true)](https://ci.appveyor.com/project/cerebrate/carob)
+
 [![Join the chat at https://gitter.im/cerebrate/carob](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/cerebrate/carob?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 A trivial utility to automatically elevate and run chocolatey ( https://chocolatey.org/ ).
